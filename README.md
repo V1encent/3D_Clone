@@ -4,6 +4,12 @@ Interactive 3D visualization of p53-mutant clone reconstructions from serial imm
 
 🔗 **Live Demo**: [https://v1encent.github.io/3D_Clone/](https://v1encent.github.io/3D_Clone/)
 
+<p align="center">
+  <img src="qrcode.png" width="180" alt="Scan QR Code to Open on Mobile" />
+  <br>
+  <em>Scan with smartphone camera to view 3D clones in mobile browser</em>
+</p>
+
 ---
 
 ## 🔬 Dataset Overview
