@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>p53 Clone 3D Interactive Viewer</title>
+  
+  <!-- Favicon icon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22%20width=%22100%22%20height=%22100%22><text y=%22.9em%22 font-size=%2290%22>🧬</text></svg>">
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-color: #0d1117;
+      --card-bg: rgba(22, 27, 34, 0.82);
+      --card-border: rgba(255, 255, 255, 0.12);
+      --accent: #38bdf8;
+      --accent-hover: #0284c7;
+      --text-main: #f0f6fc;
+      --text-sub: #8b949e;
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-color);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--text-main);
+    }
+
+    #webgl-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+      z-index: 1;
+    }
+
+    /* Glass Panel Base */
+    .glass-panel {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow);
+      z-index: 10;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* Top Navigation Bar */
+    header.top-bar {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      padding: 10px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      pointer-events: auto;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-icon {
+      font-size: 24px;
+      line-height: 1;
+      filter: drop-shadow(0 2px 6px rgba(56, 189, 248, 0.4));
+    }
+
+    .brand-title {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-badge {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent);
+      padding: 2px 7px;
+      border-radius: 999px;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    .sample-picker {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sample-label {
+      font-size: 12px;
+      color: var(--text-sub);
+      font-weight: 500;
+    }
+
+    select#sample-select {
+      background: rgba(13, 17, 23, 0.85);
+      color: var(--text-main);
+      border: 1px solid var(--card-border);
+      padding: 7px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      outline: none;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    select#sample-select:hover, select#sample-select:focus {
+      border-color: var(--accent);
+      background: rgba(22, 27, 34, 0.95);
+    }
+
+    /* Left Control Sidebar */
+    aside.sidebar {
+      position: absolute;
+      top: 80px;
+      left: 14px;
+      width: 270px;
+      max-height: calc(100% - 145px);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px;
+      overflow-y: auto;
+      pointer-events: auto;
+    }
+
+    .panel-section-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      font-weight: 700;
+      color: var(--text-sub);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    /* Clone Toggle List */
+    .clone-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .clone-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 12px;
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .clone-item:hover {
+      background: rgba(255, 255, 255, 0.07);
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .clone-item.active-focus {
+      border-color: var(--accent);
+      background: rgba(56, 189, 248, 0.08);
+    }
+
+    .clone-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .clone-color-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
+    }
+
+    .clone-name {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .clone-sub {
+      font-size: 11px;
+      color: var(--text-sub);
+    }
+
+    /* Custom Checkbox */
+    .checkbox-wrap {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+    }
+
+    .checkbox-wrap input[type="checkbox"] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      border: 1.5px solid var(--text-sub);
+      outline: none;
+      background: transparent;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s;
+    }
+
+    .checkbox-wrap input[type="checkbox"]:checked {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .checkbox-wrap input[type="checkbox"]:checked::after {
+      content: '';
+      position: absolute;
+      left: 5px;
+      top: 2px;
+      width: 5px;
+      height: 9px;
+      border: solid #0d1117;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+
+    /* Scene Controls */
+    .control-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .control-label {
+      font-size: 12px;
+      color: var(--text-sub);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .btn {
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    .btn.active {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Right Info Panel */
+    aside.info-card {
+      position: absolute;
+      top: 80px;
+      right: 14px;
+      width: 290px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: auto;
+    }
+
+    .info-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 8px;
+    }
+
+    .info-title {
+      font-size: 14px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .info-badge {
+      font-size: 10px;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .meta-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .meta-table tr {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .meta-table tr:last-child {
+      border-bottom: none;
+    }
+
+    .meta-table td {
+      padding: 6px 0;
+    }
+
+    .meta-table td.meta-key {
+      color: var(--text-sub);
+      width: 45%;
+    }
+
+    .meta-table td.meta-val {
+      color: var(--text-main);
+      font-weight: 600;
+      text-align: right;
+      font-feature-settings: "tnum";
+    }
+
+    /* Bottom Info & Hints */
+    footer.bottom-bar {
+      position: absolute;
+      bottom: 14px;
+      left: 14px;
+      right: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      pointer-events: none;
+    }
+
+    .gesture-hint {
+      font-size: 11px;
+      color: var(--text-sub);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      pointer-events: auto;
+    }
+
+    .stat-chip {
+      font-size: 11px;
+      color: var(--text-sub);
+      font-family: monospace;
+      pointer-events: auto;
+    }
+
+    /* Loading Overlay */
+    #loading-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(13, 17, 23, 0.85);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      transition: opacity 0.4s ease;
+    }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 3.5px solid rgba(56, 189, 248, 0.15);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.9s cubic-bezier(0.5, 0.1, 0.4, 0.9) infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-title {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.2px;
+    }
+
+    .loading-progress-bar {
+      width: 220px;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .loading-progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      border-radius: 999px;
+      transition: width 0.2s ease;
+    }
+
+    .loading-status {
+      font-size: 12px;
+      color: var(--text-sub);
+      font-feature-settings: "tnum";
+    }
+
+    /* Mobile drawer toggle buttons */
+    .mobile-toggle-btn {
+      display: none;
+      position: absolute;
+      bottom: 60px;
+      z-index: 20;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      border-radius: 999px;
+      color: var(--text-main);
+      box-shadow: var(--shadow);
+      cursor: pointer;
+    }
+
+    #toggle-controls-btn { left: 14px; }
+    #toggle-info-btn { right: 14px; }
+
+    /* Responsive Mobile Design */
+    @media (max-width: 768px) {
+      header.top-bar {
+        top: 8px;
+        left: 8px;
+        right: 8px;
+        padding: 8px 12px;
+      }
+
+      .brand-badge {
+        display: none;
+      }
+
+      .mobile-toggle-btn {
+        display: block;
+      }
+
+      aside.sidebar {
+        top: auto;
+        bottom: 110px;
+        left: 8px;
+        width: calc(100% - 16px);
+        max-height: 48vh;
+        transform: translateY(120%);
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      aside.sidebar.mobile-open {
+        transform: translateY(0);
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      aside.info-card {
+        top: auto;
+        bottom: 110px;
+        right: 8px;
+        width: calc(100% - 16px);
+        max-height: 48vh;
+        transform: translateY(120%);
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      aside.info-card.mobile-open {
+        transform: translateY(0);
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      footer.bottom-bar {
+        bottom: 8px;
+        left: 8px;
+        right: 8px;
+        padding: 6px 10px;
+      }
+
+      .gesture-hint {
+        font-size: 10px;
+      }
+    }
+  </style>
+
+  <!-- Importmap for Three.js Modern ESM from CDN -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+
+  <!-- 3D Canvas -->
+  <canvas id="webgl-canvas"></canvas>
+
+  <!-- Top Navigation Bar -->
+  <header class="top-bar glass-panel">
+    <div class="brand">
+      <span class="brand-icon">🧬</span>
+      <div>
+        <div class="brand-title">
+          p53 Clone 3D
+          <span class="brand-badge">Serial IHC</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="sample-picker">
+      <span class="sample-label">Sample:</span>
+      <select id="sample-select">
+        <option value="PM092">PM092 – DO7 (3 Clones)</option>
+        <option value="PM094">PM094 – AK (p53 Clone)</option>
+      </select>
+    </div>
+  </header>
+
+  <!-- Left Controls Sidebar -->
+  <aside class="sidebar glass-panel" id="sidebar-panel">
+    <div>
+      <div class="panel-section-title">
+        <span>Clones in Sample</span>
+        <span id="clone-count-badge" style="font-weight:normal; color:var(--text-sub);">3 Clones</span>
+      </div>
+      <div class="clone-list" id="clone-list-container">
+        <!-- Injected via JavaScript -->
+      </div>
+    </div>
+
+    <div>
+      <div class="panel-section-title">Display Settings</div>
+      <div class="control-row">
+        <div class="control-label">
+          <span>Opacity</span>
+          <span id="opacity-val">85%</span>
+        </div>
+        <input type="range" id="opacity-slider" min="15" max="100" value="85">
+      </div>
+
+      <div class="button-grid">
+        <button class="btn" id="btn-auto-rotate">
+          <span>🔄</span> Auto Rotate
+        </button>
+        <button class="btn" id="btn-reset-view">
+          <span>🎯</span> Fit View
+        </button>
+      </div>
+      <div class="button-grid" style="grid-template-columns: 1fr; margin-top: 6px;">
+        <button class="btn" id="btn-wireframe">
+          <span>🕸️</span> Toggle Wireframe
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Right Info Panel -->
+  <aside class="info-card glass-panel" id="info-panel">
+    <div class="info-header">
+      <div class="info-title">
+        <span id="info-clone-color" style="display:inline-block; width:10px; height:10px; border-radius:50%; background:var(--accent);"></span>
+        <span id="info-clone-title">Clone C001</span>
+      </div>
+      <span class="info-badge" id="info-sample-badge">PM092</span>
+    </div>
+    <table class="meta-table">
+      <tbody id="info-table-body">
+        <!-- Injected via JavaScript -->
+      </tbody>
+    </table>
+  </aside>
+
+  <!-- Mobile Floating Buttons -->
+  <button class="mobile-toggle-btn" id="toggle-controls-btn">🎛️ Controls</button>
+  <button class="mobile-toggle-btn" id="toggle-info-btn">📊 Clone Stats</button>
+
+  <!-- Bottom Bar -->
+  <footer class="bottom-bar glass-panel">
+    <div class="gesture-hint">
+      <span>🖱️ Drag: Rotate • Scroll: Zoom • Right-drag: Pan</span>
+    </div>
+    <div class="stat-chip" id="fps-stat">60 FPS</div>
+  </footer>
+
+  <!-- Loading Overlay -->
+  <div id="loading-overlay">
+    <div class="spinner"></div>
+    <div class="loading-title" id="loading-title">Loading 3D Meshes...</div>
+    <div class="loading-progress-bar">
+      <div class="loading-progress-fill" id="loading-progress-fill"></div>
+    </div>
+    <div class="loading-status" id="loading-status">Preparing models...</div>
+  </div>
+
+  <!-- Main JavaScript App -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { PLYLoader } from 'three/addons/loaders/PLYLoader.js';
+
+    // ═══════════════════════ Sample Dataset ═══════════════════════
+    const SAMPLES = {
+      PM092: {
+        id: "PM092",
+        name: "PM092 – DO7",
+        badge: "DO7 Antibody",
+        clones: [
+          {
+            id: "C001",
+            name: "Clone C001",
+            file: "data/PM092/C001.ply",
+            color: "#eb1eaa",
+            sub: "10 sections • 7.45×10⁶ µm³",
+            meta: {
+              "Volume": "7.45 × 10⁶ µm³",
+              "Surface Area": "1.05 × 10⁶ µm²",
+              "Serial Sections": "10 (Z001 - Z010)",
+              "Z-Axis Span": "135 µm",
+              "DAB+ Nuclei": "4,512",
+              "Mesh Vertices": "84,324",
+              "Mesh Faces": "169,376"
+            }
+          },
+          {
+            id: "C002",
+            name: "Clone C002",
+            file: "data/PM092/C002.ply",
+            color: "#00bedc",
+            sub: "9 sections • 1.24×10⁶ µm³",
+            meta: {
+              "Volume": "1.24 × 10⁶ µm³",
+              "Surface Area": "1.67 × 10⁵ µm²",
+              "Serial Sections": "9 (Z002 - Z010)",
+              "Z-Axis Span": "120 µm",
+              "DAB+ Nuclei": "873",
+              "Mesh Vertices": "13,664",
+              "Mesh Faces": "27,384"
+            }
+          },
+          {
+            id: "C003",
+            name: "Clone C003",
+            file: "data/PM092/C003.ply",
+            color: "#ffcd00",
+            sub: "3 sections • 2.15×10⁵ µm³",
+            meta: {
+              "Volume": "2.15 × 10⁵ µm³",
+              "Surface Area": "3.74 × 10⁴ µm²",
+              "Serial Sections": "3 (Z001 - Z003)",
+              "Z-Axis Span": "30 µm",
+              "DAB+ Nuclei": "219",
+              "Mesh Vertices": "2,954",
+              "Mesh Faces": "5,936"
+            }
+          }
+        ]
+      },
+      PM094: {
+        id: "PM094",
+        name: "PM094 – AK",
+        badge: "Actinic Keratosis",
+        clones: [
+          {
+            id: "Clone",
+            name: "p53 Clone",
+            file: "data/PM094/clone.ply",
+            color: "linear-gradient(135deg, #0d0887, #9c179e, #ed6925, #f0f921)",
+            sub: "527K vertices • ~22 MB",
+            meta: {
+              "Pathology": "Actinic Keratosis (AK)",
+              "Reconstruction": "p53-mutant expanded clone",
+              "Mesh Vertices": "527,343",
+              "Mesh Faces": "1,058,766",
+              "Vertex Colors": "Depth-encoded Gradient",
+              "Format": "Binary PLY (22.2 MB)",
+              "Transfer": "~10 MB (gzip/brotli)"
+            }
+          }
+        ]
+      }
+    };
+
+    // ═══════════════════════ Three.js Scene Setup ═══════════════════════
+    const canvas = document.getElementById('webgl-canvas');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0a0e17);
+
+    // Subtle grid ground for depth orientation
+    const gridHelper = new THREE.GridHelper(5000, 50, 0x1f2937, 0x111827);
+    gridHelper.position.y = 0;
+    gridHelper.visible = false;
+    scene.add(gridHelper);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 100000);
+    camera.up.set(0, 0, 1); // Z is vertical in reconstruction coordinate space
+
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: true,
+      powerPreference: "high-performance"
+    });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.07;
+    controls.rotateSpeed = 0.8;
+    controls.zoomSpeed = 1.2;
+    controls.panSpeed = 0.8;
+    controls.autoRotate = false;
+    controls.autoRotateSpeed = 1.6;
+
+    // ═══════════════════════ Lighting ═══════════════════════
+    // Ambient light
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+    scene.add(ambientLight);
+
+    // Multi-directional key and fill lights
+    const lightsConfig = [
+      { pos: [1, -1, 1.2], color: 0xffffff, intensity: 0.9 },   // Main Key Light
+      { pos: [-1, 1, 1.2], color: 0xdbeafe, intensity: 0.6 },   // Secondary Fill
+      { pos: [0, 1, -1.0], color: 0xfef3c7, intensity: 0.4 },   // Warm Rim Light
+      { pos: [0, 0, 1.5], color: 0xffffff, intensity: 0.5 },    // Top-down Normal Light
+      { pos: [0, 0, -1.5], color: 0x93c5fd, intensity: 0.3 }    // Bottom Uplight
+    ];
+
+    lightsConfig.forEach(cfg => {
+      const light = new THREE.DirectionalLight(cfg.color, cfg.intensity);
+      light.position.set(...cfg.pos).normalize().multiplyScalar(5000);
+      scene.add(light);
+    });
+
+    // Mesh Container Group
+    const meshGroup = new THREE.Group();
+    scene.add(meshGroup);
+
+    // Global App State
+    let currentSampleKey = "PM092";
+    let loadedMeshes = new Map(); // cloneId -> THREE.Mesh
+    let currentOpacity = 0.85;
+    let isWireframe = false;
+    let selectedCloneId = null;
+
+    // ═══════════════════════ PLY Loader & Sample Manager ═══════════════════════
+    const plyLoader = new PLYLoader();
+
+    async function loadSample(sampleKey) {
+      currentSampleKey = sampleKey;
+      const sample = SAMPLES[sampleKey];
+      if (!sample) return;
+
+      // Update UI title and badges
+      document.getElementById('clone-count-badge').textContent = `${sample.clones.length} Clone${sample.clones.length > 1 ? 's' : ''}`;
+      document.getElementById('info-sample-badge').textContent = sample.name;
+
+      // Clear existing meshes
+      while (meshGroup.children.length > 0) {
+        const child = meshGroup.children[0];
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) {
+          if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+          else child.material.dispose();
+        }
+        meshGroup.remove(child);
+      }
+      loadedMeshes.clear();
+
+      showLoading(true, `Loading ${sample.name}...`, "Initializing 3D geometry...");
+
+      const totalClones = sample.clones.length;
+      let loadedCount = 0;
+
+      for (let i = 0; i < totalClones; i++) {
+        const clone = sample.clones[i];
+        updateLoadingProgress((loadedCount / totalClones) * 100, `Loading ${clone.name} (${i + 1}/${totalClones})...`);
+
+        try {
+          const geometry = await new Promise((resolve, reject) => {
+            plyLoader.load(
+              clone.file,
+              geom => resolve(geom),
+              xhr => {
+                if (xhr.lengthComputable && xhr.total > 0) {
+                  const percent = (xhr.loaded / xhr.total) * 100;
+                  const mbLoaded = (xhr.loaded / 1048576).toFixed(1);
+                  const mbTotal = (xhr.total / 1048576).toFixed(1);
+                  updateLoadingProgress(
+                    ((loadedCount + percent / 100) / totalClones) * 100,
+                    `Downloading ${clone.name}: ${mbLoaded} / ${mbTotal} MB (${percent.toFixed(0)}%)`
+                  );
+                }
+              },
+              err => reject(err)
+            );
+          });
+
+          // Ensure smooth vertex normals are computed
+          geometry.computeVertexNormals();
+
+          // Create standard material with vertex colors
+          const material = new THREE.MeshStandardMaterial({
+            vertexColors: true,
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: currentOpacity,
+            roughness: 0.45,
+            metalness: 0.12,
+            wireframe: isWireframe
+          });
+
+          const mesh = new THREE.Mesh(geometry, material);
+          mesh.userData = { clone };
+          mesh.name = clone.id;
+
+          meshGroup.add(mesh);
+          loadedMeshes.set(clone.id, mesh);
+          loadedCount++;
+        } catch (err) {
+          console.error(`Failed to load ${clone.file}:`, err);
+        }
+      }
+
+      showLoading(false);
+      buildControlsUI(sample);
+      selectClone(sample.clones[0].id);
+      fitCamera();
+    }
+
+    // ═══════════════════════ Camera Auto-Fit ═══════════════════════
+    function fitCamera(targetMesh = null) {
+      const obj = targetMesh || meshGroup;
+      const box = new THREE.Box3().setFromObject(obj);
+      if (box.isEmpty()) return;
+
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z);
+
+      const fovRad = (camera.fov * Math.PI) / 180;
+      let dist = Math.abs(maxDim / 2 / Math.tan(fovRad / 2)) * 1.35;
+
+      // Position camera along an attractive diagonal angle
+      const offsetDir = new THREE.Vector3(0.7, -1.0, 0.75).normalize();
+      camera.position.copy(center).addScaledVector(offsetDir, dist);
+      camera.near = Math.max(0.1, maxDim / 200);
+      camera.far = maxDim * 50;
+      camera.updateProjectionMatrix();
+
+      controls.target.copy(center);
+      controls.update();
+    }
+
+    // ═══════════════════════ UI Generation & Interaction ═══════════════════════
+    function buildControlsUI(sample) {
+      const container = document.getElementById('clone-list-container');
+      container.innerHTML = '';
+
+      sample.clones.forEach(clone => {
+        const item = document.createElement('div');
+        item.className = 'clone-item';
+        item.id = `clone-item-${clone.id}`;
+
+        // Left info
+        const left = document.createElement('div');
+        left.className = 'clone-left';
+
+        const dot = document.createElement('div');
+        dot.className = 'clone-color-dot';
+        if (clone.color.startsWith('linear-gradient')) {
+          dot.style.background = clone.color;
+        } else {
+          dot.style.backgroundColor = clone.color;
+        }
+
+        const textDiv = document.createElement('div');
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'clone-name';
+        nameDiv.textContent = clone.name;
+
+        const subDiv = document.createElement('div');
+        subDiv.className = 'clone-sub';
+        subDiv.textContent = clone.sub;
+
+        textDiv.appendChild(nameDiv);
+        textDiv.appendChild(subDiv);
+        left.appendChild(dot);
+        left.appendChild(textDiv);
+
+        // Right Checkbox
+        const checkWrap = document.createElement('label');
+        checkWrap.className = 'checkbox-wrap';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = true;
+        checkbox.id = `checkbox-${clone.id}`;
+
+        checkbox.addEventListener('change', (e) => {
+          e.stopPropagation();
+          const mesh = loadedMeshes.get(clone.id);
+          if (mesh) mesh.visible = checkbox.checked;
+        });
+
+        checkWrap.appendChild(checkbox);
+
+        item.appendChild(left);
+        item.appendChild(checkWrap);
+
+        // Click row to select & view clone stats
+        item.addEventListener('click', () => {
+          selectClone(clone.id);
+          const mesh = loadedMeshes.get(clone.id);
+          if (mesh && !mesh.visible) {
+            mesh.visible = true;
+            checkbox.checked = true;
+          }
+        });
+
+        container.appendChild(item);
+      });
+    }
+
+    function selectClone(cloneId) {
+      selectedCloneId = cloneId;
+      const sample = SAMPLES[currentSampleKey];
+      const clone = sample.clones.find(c => c.id === cloneId) || sample.clones[0];
+
+      // Update active highlight on left list
+      document.querySelectorAll('.clone-item').forEach(el => el.classList.remove('active-focus'));
+      const activeEl = document.getElementById(`clone-item-${clone.id}`);
+      if (activeEl) activeEl.classList.add('active-focus');
+
+      // Update right info panel
+      document.getElementById('info-clone-title').textContent = clone.name;
+      const colorDot = document.getElementById('info-clone-color');
+      if (clone.color.startsWith('linear-gradient')) {
+        colorDot.style.background = clone.color;
+      } else {
+        colorDot.style.backgroundColor = clone.color;
+      }
+
+      const tbody = document.getElementById('info-table-body');
+      tbody.innerHTML = '';
+      for (const [key, val] of Object.entries(clone.meta)) {
+        const row = document.createElement('tr');
+        const tdKey = document.createElement('td');
+        tdKey.className = 'meta-key';
+        tdKey.textContent = key;
+        const tdVal = document.createElement('td');
+        tdVal.className = 'meta-val';
+        tdVal.textContent = val;
+        row.appendChild(tdKey);
+        row.appendChild(tdVal);
+        tbody.appendChild(row);
+      }
+    }
+
+    // ═══════════════════════ Event Listeners ═══════════════════════
+    // Sample change dropdown
+    const sampleSelect = document.getElementById('sample-select');
+    sampleSelect.addEventListener('change', (e) => {
+      loadSample(e.target.value);
+    });
+
+    // Opacity slider
+    const opacitySlider = document.getElementById('opacity-slider');
+    const opacityVal = document.getElementById('opacity-val');
+    opacitySlider.addEventListener('input', (e) => {
+      currentOpacity = parseInt(e.target.value, 10) / 100;
+      opacityVal.textContent = `${e.target.value}%`;
+      loadedMeshes.forEach(mesh => {
+        mesh.material.opacity = currentOpacity;
+      });
+    });
+
+    // Auto rotate toggle
+    const btnAutoRotate = document.getElementById('btn-auto-rotate');
+    btnAutoRotate.addEventListener('click', () => {
+      controls.autoRotate = !controls.autoRotate;
+      btnAutoRotate.classList.toggle('active', controls.autoRotate);
+    });
+
+    // Fit view button
+    const btnResetView = document.getElementById('btn-reset-view');
+    btnResetView.addEventListener('click', () => {
+      fitCamera();
+    });
+
+    // Toggle wireframe button
+    const btnWireframe = document.getElementById('btn-wireframe');
+    btnWireframe.addEventListener('click', () => {
+      isWireframe = !isWireframe;
+      btnWireframe.classList.toggle('active', isWireframe);
+      loadedMeshes.forEach(mesh => {
+        mesh.material.wireframe = isWireframe;
+      });
+    });
+
+    // Mobile drawer toggles
+    const sidebarPanel = document.getElementById('sidebar-panel');
+    const infoPanel = document.getElementById('info-panel');
+    const toggleControlsBtn = document.getElementById('toggle-controls-btn');
+    const toggleInfoBtn = document.getElementById('toggle-info-btn');
+
+    toggleControlsBtn.addEventListener('click', () => {
+      const isOpen = sidebarPanel.classList.toggle('mobile-open');
+      if (isOpen) infoPanel.classList.remove('mobile-open');
+    });
+
+    toggleInfoBtn.addEventListener('click', () => {
+      const isOpen = infoPanel.classList.toggle('mobile-open');
+      if (isOpen) sidebarPanel.classList.remove('mobile-open');
+    });
+
+    // Close mobile drawers on canvas click
+    canvas.addEventListener('click', () => {
+      if (window.innerWidth <= 768) {
+        sidebarPanel.classList.remove('mobile-open');
+        infoPanel.classList.remove('mobile-open');
+      }
+    });
+
+    // Window Resize Handler
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Loading Screen Helpers
+    function showLoading(show, title = "Loading...", status = "") {
+      const overlay = document.getElementById('loading-overlay');
+      if (show) {
+        document.getElementById('loading-title').textContent = title;
+        document.getElementById('loading-status').textContent = status;
+        document.getElementById('loading-progress-fill').style.width = '0%';
+        overlay.style.display = 'flex';
+        overlay.style.opacity = '1';
+      } else {
+        overlay.style.opacity = '0';
+        setTimeout(() => {
+          overlay.style.display = 'none';
+        }, 400);
+      }
+    }
+
+    function updateLoadingProgress(percent, statusText) {
+      document.getElementById('loading-progress-fill').style.width = `${Math.min(100, Math.max(0, percent))}%`;
+      if (statusText) {
+        document.getElementById('loading-status').textContent = statusText;
+      }
+    }
+
+    // ═══════════════════════ Render Loop ═══════════════════════
+    let lastTime = performance.now();
+    let frameCount = 0;
+    const fpsStat = document.getElementById('fps-stat');
+
+    function animate(currentTime) {
+      requestAnimationFrame(animate);
+
+      // FPS Counter calculation
+      frameCount++;
+      if (currentTime - lastTime >= 1000) {
+        const fps = Math.round((frameCount * 1000) / (currentTime - lastTime));
+        fpsStat.textContent = `${fps} FPS`;
+        frameCount = 0;
+        lastTime = currentTime;
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    // Start render loop and initial load
+    animate(performance.now());
+    loadSample("PM092");
+  </script>
+</body>
+</html>
